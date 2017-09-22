@@ -18,6 +18,10 @@
 Param
 (
   [Parameter()]
+  [ValidatePattern("1\.[0-9]\.[0-9][a-z]*")]
+  [string] $openssl_release = "1.1.0",
+
+  [Parameter()]
   [ValidateSet(90, 100, 110, 120, 140, 150)]
   [int] $vs_version = 120,
 
@@ -33,6 +37,13 @@ Param
   [ValidateSet('shared', 'static', 'both')]
   [string] $library = 'shared'
 )
+
+$configstr = $config
+if ($config -eq 'both') { $configstr = "debug and release"}
+$librarystr = $library
+if ($library -eq 'both') { $librarystr = "shared and static"}
+Write-Host "Building VS$vs_version ($platform), Config: $configstr, Library: $librarystr"
+Write-host "Please wait, this may take some time ..."
 
 $BUILD_ROOT = Join-Path $PSScriptRoot "VS_$vs_version"
 $PACKAGES_DIRECTORY   = Join-Path $PSScriptRoot "packages"
@@ -64,12 +75,14 @@ $PERL_PACKAGE_FILE = "strawberry-perl-$PERL_VERSION-32bit-portable.zip"
 $PERL_DOWNLOAD_URL = "http://strawberryperl.com/download/5.20.1.1/$PERL_PACKAGE_FILE"
 
 # OpenSSL configuration section
-$OPENSSL_VERSION         = "1.0.2l"
+$OPENSSL_VERSION         = $openssl_release
+$ver_arr = $OPENSSL_VERSION.Split(".")
+$OPENSSL_MAJOR_VERSION = $ver_arr[0]
+$OPENSSL_MINOR_VERSION = $ver_arr[1]
 $OPENSSL_DIRECTORY       = Join-Path $PACKAGES_DIRECTORY "openssl-$OPENSSL_VERSION"
 $OPENSSL_CLEAN_DIRECTORY = Join-Path $PACKAGES_DIRECTORY "openssl-$OPENSSL_VERSION.clean"
 $OPENSSL_PACKAGE_FILE    = "openssl-$OPENSSL_VERSION.tar.gz"
 $OPENSSL_DOWNLOAD_URL    = "https://www.openssl.org/source/$OPENSSL_PACKAGE_FILE"
-
 
 function Download-File {
     param (
@@ -189,7 +202,7 @@ function Unpack-OpenSSL {
         # Unpack OpenSSL
         Write-Host "Unpacking $OPENSSL_PACKAGE_FILE"
         $tmp = Join-Path $PACKAGES_DIRECTORY $OPENSSL_PACKAGE_FILE
-        
+
         & "$7ZIP_TOOL" x $tmp -o"$PACKAGES_DIRECTORY" -y
         if ($LastExitCode -ne 0) {
             Write-Host "Error extracting files"
@@ -202,6 +215,8 @@ function Unpack-OpenSSL {
             Exit
         }
 
+        # This is a clean code base that will be copied and used by each individual build
+        Start-Sleep 1
         Rename-Item -path $OPENSSL_DIRECTORY -newname "$OPENSSL_CLEAN_DIRECTORY" -force
         if ($? -eq $false) {
             Write-Host "Error renaming OpenSSL directory [$OPENSSL_DIRECTORY] to [$OPENSSL_CLEAN_DIRECTORY]"
@@ -209,13 +224,8 @@ function Unpack-OpenSSL {
         }
     }
 
-    # Clean up stale files from the previous build and copy clean directory tree for this build
-    # Note:
-    # For no apparent reason, sometimes Test-Path throws
-    # UnauthorizedAccessException. Since we must own this directory,
-    # the exception is ignored on Test-Path and the Remove-Item may work
-    # as expected. If the exception is for real, Remove-Item will fail
-    # anyway, so this is a safe thing to do.
+    # Clean up stale files from the previous build
+    Start-Sleep 1
     if (Test-Path -Path $OPENSSL_DIRECTORY -ErrorAction SilentlyContinue) {
         Remove-Item $OPENSSL_DIRECTORY -Recurse -Force
         if ($? -eq $false) {
@@ -224,6 +234,8 @@ function Unpack-OpenSSL {
         }
     }
 
+    # Copy clean directory tree for this build
+    Start-Sleep 1
     Copy-Item -Path "$OPENSSL_CLEAN_DIRECTORY" -Destination "$OPENSSL_DIRECTORY" -Recurse -Force
     if ($? -eq $false) {
         Write-Host "Error copying clean OpenSSL directory [$OPENSSL_CLEAN_DIRECTORY] to [$OPENSSL_DIRECTORY]"
@@ -237,10 +249,10 @@ function Replace-String {
         [string]$original,
         [string]$replacement
     )
-    (gc $file).replace($original, $replacement) | sc $file
+    (Get-Content $file).replace($original, $replacement) | Set-Content $file
 }
 
-function Compile-OpenSSL {
+function Compile-OpenSSL-10 {
     param (
         [string]$winplatform,
         [string]$configuration,
@@ -250,7 +262,7 @@ function Compile-OpenSSL {
 
     # start every build with clean directory
     Unpack-OpenSSL
-
+    Start-Sleep 1
     pushd $OPENSSL_DIRECTORY
 
     # Set up portable Strawberry Perl
@@ -268,45 +280,45 @@ function Compile-OpenSSL {
     $b = "32"
     if ($winplatform -eq "win64") { $b = "64" }
 
-
     # Set up nasm
     $env:Path = "$NASM_DIRECTORY;" + $env:Path
 
-    perl Configure $target --prefix="bin/$winplatform/$configuration"
+    perl Configure $target --prefix="$OPENSSL_DIRECTORY/bin/$winplatform/$configuration"
 
     # Run nasm
     cmd /c ms\do_nasm.bat
 
     if ($winplatform -eq "win64") {
+        # do not edit these replaces - they must be exactly like this, tabs and all
         Replace-String "util\pl\VC-32.pl" "`$ssl=	`"ssleay32`"" `
-                                          "`$ssl=	`"ssleay$b$l$d`""
+                                          "`$ssl=	`"libssl`""
 
         Replace-String "util\pl\VC-32.pl" "`$crypto=`"libeay32`"" `
-                                          "`$crypto=`"libeay$b$l$d`""
+                                          "`$crypto=`"libcrypto`""
 
         Replace-String "util\pl\VC-32.pl" "`$crypto=`"libeayfips32`"" `
-                                          "`$crypto=`"libeayfips$b$l$d`""
+                                          "`$crypto=`"libcryptofips`""
 
         Replace-String "ms\do_win64a.bat" "perl util\mkdef.pl 32 libeay > ms\libeay32.def" `
-                                          "perl util\mkdef.pl $b libeay > ms\libeay$b$l$d.def"
+                                          "perl util\mkdef.pl $b libeay > ms\libcrypto.def"
 
         Replace-String "ms\do_win64a.bat" "perl util\mkdef.pl 32 ssleay > ms\ssleay32.def" `
-                                          "perl util\mkdef.pl $b ssleay > ms\ssleay$b$l$d.def"
+                                          "perl util\mkdef.pl $b ssleay > ms\libssl.def"
 
         cmd /c ms\do_win64a
 
-        Replace-String "ms\libeay$b$l$d.def" "LIBEAY32" "LIBEAY$b$l$d"
-        Replace-String "ms\ssleay$b$l$d.def" "SSLEAY32" "SSLEAY$b$l$d"
+        Replace-String "ms\libcrypto.def" "LIBEAY32" "LIBCRYPTO"
+        Replace-String "ms\libssl.def" "SSLEAY32" "LIBSSL"
     }
     else {
-        Replace-String "ms\libeay32.def" "LIBEAY32" "LIBEAY$b$l$d"
-        Replace-String "ms\ssleay32.def" "SSLEAY32" "SSLEAY$b$l$d"
+        Replace-String "ms\libeay32.def" "LIBEAY32" "LIBCRYPTO"
+        Replace-String "ms\ssleay32.def" "SSLEAY32" "LIBSSL"
     }
 
     $lib = ""
     if ($library -eq "shared") { $lib = "dll" }
     if ($configuration -eq "debug") {
-        Replace-String "ms\nt$lib.mak" "`$(TMP_D)/lib" "`$(TMP_D)/openssl$b$l$d"
+        Replace-String "ms\nt$lib.mak" "`$(TMP_D)/lib" "`$(TMP_D)/openssl"
     }
 
     # Run nmake
@@ -318,7 +330,85 @@ function Compile-OpenSSL {
     popd
 }
 
-function Output-OpenSSL {
+function Replace-Line {
+    param (
+        [string]$file,
+        [string]$regex,
+        [string]$replacement
+    )
+
+    (Get-Content $file) | Foreach-Object {$_ -replace "^$regex.*", "$replacement"} | Set-Content $file
+}
+
+function Compile-OpenSSL-11 {
+    param (
+        [string]$winplatform,
+        [string]$configuration,
+        [string]$target,
+        [string]$library
+    )
+
+    # start every build with clean directory
+    Unpack-OpenSSL
+    Start-Sleep 1
+    pushd $OPENSSL_DIRECTORY
+
+    # Set up portable Strawberry Perl
+    $env:Path = "$(Join-Path $PERL_DIRECTORY perl\site\bin);" + $env:Path
+    $env:Path = "$(Join-Path $PERL_DIRECTORY perl\bin);" + $env:Path
+    $env:Path = "$(Join-Path $PERL_DIRECTORY c\bin);" + $env:Path
+
+    $d = ""
+    if ($configuration -eq "debug") { $d = "d" }
+
+    $l = ""
+    if ($library -eq "shared") { $l = "MD" }
+    else                       { $l = "MT" }
+
+    $b = "32"
+    if ($winplatform -eq "win64") { $b = "64" }
+
+    # Set up nasm
+    $env:Path = "$NASM_DIRECTORY;" + $env:Path
+
+    # edit build.info, to prevent name decoration for DLLS
+    $regex = [Regex]::Escape(" SHARED_NAME[libcrypto]=libcrypto")
+    Replace-Line "build.info" "^$regex.*" " SHARED_NAME[libcrypto]=libcrypto"
+    $regex = [Regex]::Escape(" SHARED_NAME[libssl]=libssl")
+    Replace-Line "build.info" "^$regex.*" " SHARED_NAME[libssl]=libssl"
+
+    perl Configure $target --api=1.0.0 --openssldir="$OPENSSL_DIRECTORY\ssl" --prefix="$OPENSSL_DIRECTORY\bin\$winplatform\$configuration"
+
+    nmake
+    nmake install
+
+    popd
+}
+
+function Compile-OpenSSL {
+    param (
+        [string]$winplatform,
+        [string]$configuration,
+        [string]$target,
+        [string]$library
+    )
+
+    Write-Host "**********************************************************"
+    Write-Host " Compiling $winplatform $configuration $target $library"
+    Write-Host "**********************************************************"
+
+    if (($OPENSSL_MAJOR_VERSION -eq 1) -and ($OPENSSL_MINOR_VERSION -eq 0)) {
+        Compile-OpenSSL-10 $winplatform $configuration $target $library
+    }
+    elseif (($OPENSSL_MAJOR_VERSION -ge 1) -and ($OPENSSL_MINOR_VERSION -ge 1)) {
+        Compile-OpenSSL-11 $winplatform $configuration $target $library
+    }
+    else {
+        throw "Only versions >= 1.0.x are supported"
+    }
+}
+
+function Output-OpenSSL-10 {
     param (
         [string]$winplatform,
         [string]$configuration,
@@ -326,7 +416,7 @@ function Output-OpenSSL {
     )
 
     pushd $OPENSSL_DIRECTORY
-    
+
     $t = Join-Path $OUTPUT_BIN_DIRECTORY "$winplatform"
     $lib = "lib"
 
@@ -345,37 +435,39 @@ function Output-OpenSSL {
         xcopy /y bin\$winplatform\$configuration\bin\*.dll "$t\bin\$configuration\*"
 
         if ($winplatform -eq "win32") {
-            if (Test-Path "$t\bin\$configuration\libeay$b$l$d.dll") {
-                Remove-Item "$t\bin\$configuration\libeay$b$l$d.dll" -force
-            }
-            Rename-Item -path "$t\bin\$configuration\libeay32.dll" -newname "libeay$b$l$d.dll" -force
+            $path = "$t\bin\$configuration\libcrypto.dll"
+            if (Test-Path $path) { Remove-Item $path -force }
+            $path = "$t\bin\$configuration\libeay32.dll"
+            Rename-Item -path $path -newname "libcrypto.dll" -force
 
-            if (Test-Path "$t\bin\$configuration\ssleay$b$l$d.dll") {
-                Remove-Item "$t\bin\$configuration\ssleay$b$l$d.dll" -force
-            }
-            Rename-Item -path "$t\bin\$configuration\ssleay32.dll" -newname "ssleay$b$l$d.dll" -force
+            $path = "$t\bin\$configuration\libssl.dll"
+            if (Test-Path $path) { Remove-Item $path -force }
+            $path = "$t\bin\$configuration\ssleay32.dll"
+            Rename-Item -path $path -newname "libssl.dll" -force
         }
 
         $lib = "bin"
     }
 
     xcopy /y bin\$winplatform\$configuration\lib\*.lib "$t\$lib\$configuration\*" 
-    
-    if (($configuration -eq "debug") -and ($library -eq "static")) {
+
+    if ($configuration -eq "debug") {
         $tmp = Join-Path $OPENSSL_DIRECTORY "tmp32.dbg"
-        xcopy /y $tmp\openssl*.pdb "$t\$lib\$configuration\*" /E
+        if (Test-Path "$tmp\openssl.pdb") {
+            xcopy /y "$tmp\openssl.pdb" "$t\$lib\$configuration\*" /E
+        }
     }
 
     if ($winplatform -eq "win32") {
-        if (Test-Path "$t\$lib\$configuration\libeay$b$l$d.lib") {
-             Remove-Item "$t\$lib\$configuration\libeay$b$l$d.lib" -force
-        }
-        Rename-Item -path "$t\$lib\$configuration\libeay32.lib" -newname "libeay$b$l$d.lib" -force
+        $path = "$t\$lib\$configuration\libcrypto.lib"
+        if (Test-Path $path) { Remove-Item $path -force }
+        $path = "$t\$lib\$configuration\libeay32.lib"
+        Rename-Item -path $path -newname "libcrypto.lib" -force
 
-        if (Test-Path "$t\$lib\$configuration\ssleay$b$l$d.lib") {
-             Remove-Item "$t\$lib\$configuration\ssleay$b$l$d.lib" -force
-        }
-        Rename-Item -path "$t\$lib\$configuration\ssleay32.lib" -newname "ssleay$b$l$d.lib" -force
+        $path = "$t\$lib\$configuration\libssl.lib"
+        if (Test-Path $path) { Remove-Item $path -force }
+        $path = "$t\$lib\$configuration\ssleay32.lib"
+        Rename-Item -path $path -newname "libssl.lib" -force
     }
 
     if (!(Test-Path -Path "$OUTPUT_INC_DIRECTORY")) {
@@ -383,6 +475,80 @@ function Output-OpenSSL {
     }
 
     popd
+}
+
+function Do-XCopy {
+    param (
+        [string]$source,
+        [string]$target
+    )
+    Write-Host "xcopy /y $source $target /E /C"
+    xcopy /y "$source" "$target" /E /C
+}
+
+function Output-OpenSSL-11 {
+    param (
+        [string]$winplatform,
+        [string]$configuration,
+        [string]$library
+    )
+
+    pushd $OPENSSL_DIRECTORY
+
+    $t = Join-Path $OUTPUT_BIN_DIRECTORY "$winplatform"
+
+    # Copy output files
+    $lib = "lib"
+    $srcpath = "bin\$winplatform\$configuration\$lib"
+    $destpath = "$t\$lib\$configuration"
+    if ($library -eq "shared") {
+        $lib = "bin"
+        $destpath = "$t\$lib\$configuration"
+        #xcopy /y "$srcpath\*.lib" "$destpath\*"
+        Do-XCopy "$srcpath\*.lib" "$destpath\*"
+        $srcpath = "bin\$winplatform\$configuration\$lib"
+        #xcopy /y "$srcpath\*.dll" "$destpath\*"
+        Do-XCopy "$srcpath\*.dll" "$destpath\*"
+        #xcopy /y "$srcpath\*.pdb" "$destpath\*"
+        Do-XCopy "$srcpath\*.pdb" "$destpath\*"
+    }
+    else {
+        #xcopy /y "$srcpath\*.lib" "$destpath\*"
+        Do-XCopy "$srcpath\*.lib" "$destpath\*"
+        #xcopy /y "$srcpath\*.pdb" "$destpath\*"
+        Do-XCopy "$srcpath\*.pdb" "$destpath\*"
+    }
+
+    $path = "$destpath\openssl.*"
+    if (Test-Path $path) { Remove-Item $path -force }
+
+    if (!(Test-Path -Path "$OUTPUT_INC_DIRECTORY")) {
+        #xcopy /y "bin\$winplatform\$configuration\include\*" "$OUTPUT_INC_DIRECTORY\*" /E /C
+        Do-XCopy "bin\$winplatform\$configuration\include\*" "$OUTPUT_INC_DIRECTORY\*"
+    }
+
+    popd
+}
+
+function Output-OpenSSL {
+    param (
+        [string]$winplatform,
+        [string]$configuration,
+        [string]$library
+    )
+    Write-Host "************************************************"
+    Write-Host " Copying $winplatform $configuration $library"
+    Write-Host "************************************************"
+
+    if (($OPENSSL_MAJOR_VERSION -eq 1) -and ($OPENSSL_MINOR_VERSION -eq 0)) {
+        Output-OpenSSL-10 $winplatform $configuration $library
+    }
+    elseif (($OPENSSL_MAJOR_VERSION -ge 1) -and ($OPENSSL_MINOR_VERSION -ge 1)) {
+        Output-OpenSSL-11 $winplatform $configuration $library
+    }
+    else {
+        throw "Only versions >= 1.0.x are supported"
+    }
 }
 
 
