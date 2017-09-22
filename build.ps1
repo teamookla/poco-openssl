@@ -503,18 +503,13 @@ function Output-OpenSSL-11 {
     if ($library -eq "shared") {
         $lib = "bin"
         $destpath = "$t\$lib\$configuration"
-        #xcopy /y "$srcpath\*.lib" "$destpath\*"
         Do-XCopy "$srcpath\*.lib" "$destpath\*"
         $srcpath = "bin\$winplatform\$configuration\$lib"
-        #xcopy /y "$srcpath\*.dll" "$destpath\*"
         Do-XCopy "$srcpath\*.dll" "$destpath\*"
-        #xcopy /y "$srcpath\*.pdb" "$destpath\*"
         Do-XCopy "$srcpath\*.pdb" "$destpath\*"
     }
     else {
-        #xcopy /y "$srcpath\*.lib" "$destpath\*"
         Do-XCopy "$srcpath\*.lib" "$destpath\*"
-        #xcopy /y "$srcpath\*.pdb" "$destpath\*"
         Do-XCopy "$srcpath\*.pdb" "$destpath\*"
     }
 
@@ -522,7 +517,6 @@ function Output-OpenSSL-11 {
     if (Test-Path $path) { Remove-Item $path -force }
 
     if (!(Test-Path -Path "$OUTPUT_INC_DIRECTORY")) {
-        #xcopy /y "bin\$winplatform\$configuration\include\*" "$OUTPUT_INC_DIRECTORY\*" /E /C
         Do-XCopy "bin\$winplatform\$configuration\include\*" "$OUTPUT_INC_DIRECTORY\*"
     }
 
