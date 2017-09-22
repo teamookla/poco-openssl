@@ -482,7 +482,6 @@ function Do-XCopy {
         [string]$source,
         [string]$target
     )
-    Write-Host "xcopy /y $source $target /E /C"
     xcopy /y "$source" "$target" /E /C
 }
 
