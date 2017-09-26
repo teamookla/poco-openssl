@@ -5,7 +5,8 @@
 #
 # Usage:
 # ------
-# build.ps1 [-vs_version 150 | 140 | 120 | 110 | 100 | 90]
+# build.ps1 [-openssl_release 1.0.0 | 1.1.0]
+#           [-vs_version 150 | 140 | 120 | 110 | 100 | 90]
 #           [-config     release | debug | both]
 #           [-platform   Win32 | x64]
 #           [-library    shared | static]
