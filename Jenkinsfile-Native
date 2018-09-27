@@ -1,0 +1,101 @@
+@Library('common-jenkins') _
+
+def agents = [
+  deb5_32bit:    [ label: 'nr-build32-deb5-1' ],
+  deb5_64bit:    [ label: 'nr-build64-deb5-1', ],
+  freebsd32:     [ label: 'freebsd32-11' ],
+  freebsd64:     [ label: 'freebsd-11' ],
+  macos:         [ label: 'macos' ],
+  win32:         [ label: 'aw-win-lab1' ],
+  win64:         [ label: 'aw-win-lab1' ],
+]
+
+def builds = [
+  'freebsd11_32bit': [ agent: agents.freebsd32 ],
+  'freebsd11_64bit': [ agent: agents.freebsd64 ],
+  'deb5_32bit':      [ agent: agents.deb5_32bit ],
+  'deb5_64bit':      [ agent: agents.deb5_64bit ],
+  'macos':           [ agent: agents.macos ],
+  'win32':           [ agent: agents.win32, winPlatform:'VC-WIN32' ],
+  // FIXME: this doesn't currently build properly:
+  // 'win64': [ agent: agents.win64, winPlatform:'VC-WIN64A' ],
+]
+
+def createBuildStages(builds) {
+  builds.collectEntries { name, definition ->
+    [ "${name}": createBuildStage(name, definition) ]
+  }
+}
+
+def createBuildStage(name, definition) {
+  return {
+    stage(name) {
+
+      node(definition.agent.label) {
+        ws("workspace/" + generateWorkspaceName("${env.APPLICATION_NAME}-${env.BRANCH_NAME}-${name}")) {
+          checkout scm
+          withEnv([
+            "PLATFORM=${definition.platform ?: name}",
+          ]) {
+            withAwsCredentials('jenkins-native-builds') {
+              if (definition.agent.toolchains) {
+                definition.agent.toolchains.each { toolchain, dest ->
+                  sh "aws s3 cp s3://ookla-native-toolchains/${toolchain} - | tar xzf - -C ${dest}"
+                }
+              }
+
+              dir("openssl-${OPENSSL_VERSION}") {
+                deleteDir()
+              }
+
+              sh "aws s3 cp s3://ookla-native-toolchains/openssl-${OPENSSL_VERSION}.tar.gz - | tar xzf -"
+              dir("openssl-${OPENSSL_VERSION}") {
+                if (isUnix()) {
+                  sh """
+                    set -eu
+                    ./config --prefix=/usr --openssldir=/usr/lib/ssl no-ssl
+                    make
+                    make DESTDIR=./${APPLICATION_NAME}-${OPENSSL_VERSION} install
+                  """
+                } else {
+                  msvcBat """
+                    perl Configure --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.winPlatform}
+                    set DESTDIR=${APPLICATION_NAME}-${OPENSSL_VERSION}
+                    nmake
+                    nmake install
+                  """
+                }
+
+                // compress and publish results
+                sh """
+                  tar czf - ${APPLICATION_NAME}-${OPENSSL_VERSION} \
+                    | aws s3 cp - s3://ookla-native-toolchains/${APPLICATION_NAME}-${OPENSSL_VERSION}-${PLATFORM}.tar.gz
+                """
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+pipeline {
+  agent none
+  environment {
+    APPLICATION_NAME = "openssl"
+    BUILD_TIMESTAMP = "${timeStamp}"
+    OPENSSL_VERSION = "1.1.1"
+  }
+  stages {
+    stage('Build All') {
+      steps {
+        script {
+          throttle(['fargate']) {
+            parallel createBuildStages(builds)
+          }
+        }
+      }
+    }
+  }
+}
