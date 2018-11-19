@@ -58,8 +58,22 @@ def createBuildStage(name, definition) {
                     make DESTDIR=./${APPLICATION_NAME}-${OPENSSL_VERSION} install
                   """
                 } else {
+                  // Need to rewrite the makefile here, which is broken for static builds.
+                  // Also need to do some over-the-top escaping to deal with groovy->cmd->perl
+                  makefileRewriteCommand = '''
+                  perl -pi.bak -e
+                  's,@("\\$\\(PERL\\)" "\\$\\(SRCDIR\\)\\\\util\\\\copy.pl\" \\$\\((.*)\\) \\\\),\\@if not "\\$($2)" == "" $1,'
+                  makefile
+                  ''' \
+                  .stripIndent() \
+                  .replaceAll('\n', ' ') \
+                  .replaceAll('"', '\\\\"') \
+                  .replaceAll('\'', '"')
+
+                  // https://stackoverflow.com/questions/50365513/building-a-static-version-of-openssl-library-using-md-switch
                   msvcBat """
-                    perl Configure --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.winPlatform}
+                    perl Configure no-shared --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.winPlatform}
+                    ${makefileRewriteCommand}
                     set DESTDIR=${APPLICATION_NAME}-${OPENSSL_VERSION}
                     nmake
                     nmake install
