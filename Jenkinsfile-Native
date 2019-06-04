@@ -2,7 +2,9 @@
 
 def agents = [
   deb5_32bit:    [ label: 'nr-build32-deb5-1' ],
-  deb5_64bit:    [ label: 'nr-build64-deb5-1', ],
+  deb5_64bit:    [ label: 'native-deb5-64', ],
+  deb8_64bit:    [ label: 'native-deb8-64' ],
+  deb9_64bit:    [ label: 'native-deb9-64' ],
   freebsd32:     [ label: 'freebsd32-11' ],
   freebsd64:     [ label: 'freebsd-11' ],
   macos:         [ label: 'macos' ],
@@ -15,6 +17,8 @@ def builds = [
   'freebsd11_64bit': [ agent: agents.freebsd64 ],
   'deb5_32bit':      [ agent: agents.deb5_32bit ],
   'deb5_64bit':      [ agent: agents.deb5_64bit ],
+  'deb8_64bit':      [ agent: agents.deb8_64bit ],
+  'deb9_64bit':      [ agent: agents.deb9_64bit ],
   'macos':           [ agent: agents.macos ],
   'win32':           [ agent: agents.win32, winPlatform:'VC-WIN32' ],
   // FIXME: this doesn't currently build properly:
