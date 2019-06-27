@@ -6,23 +6,23 @@ def agents = [
   deb8_64bit:    [ label: 'native-deb8-64' ],
   deb9_64bit:    [ label: 'native-deb9-64' ],
   freebsd32:     [ label: 'freebsd32-11' ],
-  freebsd64:     [ label: 'freebsd-11' ],
+  freebsd64:     [ label: 'freebsd64-11' ],
+  freebsd64_12:     [ label: 'freebsd64-12' ],
   macos:         [ label: 'macos' ],
-  win32:         [ label: 'aw-win-lab1' ],
-  win64:         [ label: 'aw-win-lab1' ],
+  windows:         [ label: 'windows-build-pool' ],
 ]
 
 def builds = [
-  'freebsd11_32bit': [ agent: agents.freebsd32 ],
-  'freebsd11_64bit': [ agent: agents.freebsd64 ],
+  'freebsd11_64bit': [ agent: agents.freebsd64_11 ],
+/*  'freebsd11_32bit': [ agent: agents.freebsd32 ],
+  'freebsd12_64bit': [ agent: agents.freebsd64_12 ],
   'deb5_32bit':      [ agent: agents.deb5_32bit ],
   'deb5_64bit':      [ agent: agents.deb5_64bit ],
   'deb8_64bit':      [ agent: agents.deb8_64bit ],
   'deb9_64bit':      [ agent: agents.deb9_64bit ],
   'macos':           [ agent: agents.macos ],
-  'win32':           [ agent: agents.win32, winPlatform:'VC-WIN32' ],
-  // FIXME: this doesn't currently build properly:
-  // 'win64': [ agent: agents.win64, winPlatform:'VC-WIN64A' ],
+  'win32':           [ agent: agents.windows, perlPlatform:'VC-WIN32', winPlatform:'x86' ],
+  'win64': [ agent: agents.windows, perlPlatform:'VC-WIN64A', winPlatform:'x64' ],*/
 ]
 
 def createBuildStages(builds) {
@@ -48,20 +48,31 @@ def createBuildStage(name, definition) {
                 }
               }
 
-              dir("openssl-${OPENSSL_VERSION}") {
+/*              dir("openssl-${OPENSSL_VERSION}") {
                 deleteDir()
-              }
+              }*/
 
-              sh "aws s3 cp s3://ookla-native-toolchains/openssl-${OPENSSL_VERSION}.tar.gz - | tar xzf -"
+              sh """
+                   aws s3 cp --no-progress s3://ookla-native-toolchains/openssl-${OPENSSL_VERSION}.tar.gz .
+                   tar xzf openssl-${OPENSSL_VERSION}.tar.gz 
+                   rm -f openssl-${OPENSSL_VERSION}.tar.gz 
+                 """
               dir("openssl-${OPENSSL_VERSION}") {
                 if (isUnix()) {
                   sh """
                     set -eu
-                    ./config --prefix=/usr --openssldir=/usr/lib/ssl no-ssl
-                    make
+                    ./config --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test 
+                    make 
                     make DESTDIR=./${APPLICATION_NAME}-${OPENSSL_VERSION} install
                   """
                 } else {
+              sh """
+                   if [[ ! -f jom.exe ]]; then 
+                       aws s3 cp  --no-progress s3://ookla-native-toolchains/jom.zip .
+                       unzip -o jom.zip
+                       rm -rf jom.zip
+                   fi
+                 """
                   // Need to rewrite the makefile here, which is broken for static builds.
                   // Also need to do some over-the-top escaping to deal with groovy->cmd->perl
                   makefileRewriteCommand = '''
@@ -76,18 +87,22 @@ def createBuildStage(name, definition) {
 
                   // https://stackoverflow.com/questions/50365513/building-a-static-version-of-openssl-library-using-md-switch
                   msvcBat """
-                    perl Configure no-shared --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.winPlatform}
+                    set PATH=c:\\Strawberry\\perl\\bin;%PATH%
+                    set __CNF_CXXFLAGS=/FS 
+                    set __CNF_CFLAGS=/FS
+                   perl Configure no-shared    no-tests no-ui-console no-unit-test  --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
                     ${makefileRewriteCommand}
                     set DESTDIR=${APPLICATION_NAME}-${OPENSSL_VERSION}
-                    nmake
-                    nmake install
-                  """
+                    jom
+                    jom install
+                  """, [winPlatform: definition.winPlatform]
                 }
 
                 // compress and publish results
                 sh """
-                  tar czf - ${APPLICATION_NAME}-${OPENSSL_VERSION} \
-                    | aws s3 cp - s3://ookla-native-toolchains/${APPLICATION_NAME}-${OPENSSL_VERSION}-${PLATFORM}.tar.gz
+                  rm -rf ${APPLICATION_NAME}-${OPENSSL_VERSION}/usr/share
+                  tar cvf ${APPLICATION_NAME}-${OPENSSL_VERSION}-${PLATFORM}.tar.gz  ${APPLICATION_NAME}-${OPENSSL_VERSION} 
+                  aws s3 cp --no-progress ${APPLICATION_NAME}-${OPENSSL_VERSION}-${PLATFORM}.tar.gz s3://ookla-native-toolchains/${APPLICATION_NAME}-${OPENSSL_VERSION}-${PLATFORM}.tar.gz
                 """
               }
             }
@@ -109,9 +124,7 @@ pipeline {
     stage('Build All') {
       steps {
         script {
-          throttle(['fargate']) {
-            parallel createBuildStages(builds)
-          }
+          parallel createBuildStages(builds)
         }
       }
     }
