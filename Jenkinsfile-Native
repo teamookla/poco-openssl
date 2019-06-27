@@ -13,8 +13,8 @@ def agents = [
 ]
 
 def builds = [
-  'freebsd11_32bit': [ agent: agents.freebsd32 ],
   'freebsd11_64bit': [ agent: agents.freebsd64_11 ],
+/*  'freebsd11_32bit': [ agent: agents.freebsd32 ],
   'freebsd12_64bit': [ agent: agents.freebsd64_12 ],
   'deb5_32bit':      [ agent: agents.deb5_32bit ],
   'deb5_64bit':      [ agent: agents.deb5_64bit ],
@@ -22,7 +22,7 @@ def builds = [
   'deb9_64bit':      [ agent: agents.deb9_64bit ],
   'macos':           [ agent: agents.macos ],
   'win32':           [ agent: agents.windows, perlPlatform:'VC-WIN32', winPlatform:'x86' ],
-  'win64': [ agent: agents.windows, perlPlatform:'VC-WIN64A', winPlatform:'x64' ],
+  'win64': [ agent: agents.windows, perlPlatform:'VC-WIN64A', winPlatform:'x64' ],*/
 ]
 
 def createBuildStages(builds) {
