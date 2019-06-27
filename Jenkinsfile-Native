@@ -1,28 +1,28 @@
 @Library('common-jenkins') _
 
 def agents = [
-  deb5_32bit:    [ label: 'nr-build32-deb5-1' ],
-  deb5_64bit:    [ label: 'native-deb5-64', ],
-  deb8_64bit:    [ label: 'native-deb8-64' ],
-  deb9_64bit:    [ label: 'native-deb9-64' ],
-  freebsd32:     [ label: 'freebsd32-11' ],
-  freebsd64:     [ label: 'freebsd64-11' ],
-  freebsd64_12:     [ label: 'freebsd64-12' ],
-  macos:         [ label: 'macos' ],
+  deb5_32bit:      [ label: 'nr-build32-deb5-1' ],
+  deb5_64bit:      [ label: 'native-deb5-64', ],
+  deb8_64bit:      [ label: 'native-deb8-64' ],
+  deb9_64bit:      [ label: 'native-deb9-64' ],
+  freebsd11_32bit: [ label: 'freebsd32-11' ],
+  freebsd11_64bit: [ label: 'freebsd64-11' ],
+  freebsd12_64bit: [ label: 'freebsd64-12' ],
+  macos:           [ label: 'macos' ],
   windows:         [ label: 'windows-build-pool' ],
 ]
 
 def builds = [
-  'freebsd11_64bit': [ agent: agents.freebsd64_11 ],
-/*  'freebsd11_32bit': [ agent: agents.freebsd32 ],
-  'freebsd12_64bit': [ agent: agents.freebsd64_12 ],
+  'freebsd11_64bit': [ agent: agents.freebsd11_64bit ],
+  'freebsd11_32bit': [ agent: agents.freebsd11_32bit ],
+  'freebsd12_64bit': [ agent: agents.freebsd12_64bit ],
   'deb5_32bit':      [ agent: agents.deb5_32bit ],
   'deb5_64bit':      [ agent: agents.deb5_64bit ],
   'deb8_64bit':      [ agent: agents.deb8_64bit ],
   'deb9_64bit':      [ agent: agents.deb9_64bit ],
   'macos':           [ agent: agents.macos ],
   'win32':           [ agent: agents.windows, perlPlatform:'VC-WIN32', winPlatform:'x86' ],
-  'win64': [ agent: agents.windows, perlPlatform:'VC-WIN64A', winPlatform:'x64' ],*/
+  'win64': [ agent: agents.windows, perlPlatform:'VC-WIN64A', winPlatform:'x64' ],
 ]
 
 def createBuildStages(builds) {
@@ -40,33 +40,34 @@ def createBuildStage(name, definition) {
           checkout scm
           withEnv([
             "PLATFORM=${definition.platform ?: name}",
+            "OPENSSL=${APPLICATION_NAME}-${OPENSSL_VERSION}",
           ]) {
             withAwsCredentials('jenkins-native-builds') {
-              if (definition.agent.toolchains) {
-                definition.agent.toolchains.each { toolchain, dest ->
-                  sh "aws s3 cp s3://ookla-native-toolchains/${toolchain} - | tar xzf - -C ${dest}"
+              if (env.BRANCH_NAME == 'master') {
+                dir("${OPENSSL}") {
+                  deleteDir()
                 }
               }
 
-/*              dir("openssl-${OPENSSL_VERSION}") {
-                deleteDir()
-              }*/
-
               sh """
-                   aws s3 cp --no-progress s3://ookla-native-toolchains/openssl-${OPENSSL_VERSION}.tar.gz .
-                   tar xzf openssl-${OPENSSL_VERSION}.tar.gz 
-                   rm -f openssl-${OPENSSL_VERSION}.tar.gz 
+                   aws s3 cp --no-progress s3://ookla-native-toolchains/${OPENSSL}.tar.gz .
+                   tar xzf ${OPENSSL}.tar.gz 
+                   rm -f ${OPENSSL}.tar.gz 
                  """
-              dir("openssl-${OPENSSL_VERSION}") {
+              dir("${OPENSSL}") {
+                dir("${OPENSSL}") {
+                  deleteDir()
+                }
                 if (isUnix()) {
                   sh """
                     set -eu
                     ./config --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test 
                     make 
-                    make DESTDIR=./${APPLICATION_NAME}-${OPENSSL_VERSION} install
+                    make DESTDIR=./${OPENSSL} install_ssldirs install_sw
                   """
                 } else {
               sh """
+                   set -eu
                    if [[ ! -f jom.exe ]]; then 
                        aws s3 cp  --no-progress s3://ookla-native-toolchains/jom.zip .
                        unzip -o jom.zip
@@ -90,19 +91,20 @@ def createBuildStage(name, definition) {
                     set PATH=c:\\Strawberry\\perl\\bin;%PATH%
                     set __CNF_CXXFLAGS=/FS 
                     set __CNF_CFLAGS=/FS
-                   perl Configure no-shared    no-tests no-ui-console no-unit-test  --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
+                    perl Configure no-shared    no-tests no-ui-console no-unit-test  --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
                     ${makefileRewriteCommand}
-                    set DESTDIR=${APPLICATION_NAME}-${OPENSSL_VERSION}
+                    set DESTDIR=${OPENSSL}
                     jom
-                    jom install
+                    nmake install_ssldirs
+		    nmake install_sw
                   """, [winPlatform: definition.winPlatform]
                 }
 
                 // compress and publish results
                 sh """
-                  rm -rf ${APPLICATION_NAME}-${OPENSSL_VERSION}/usr/share
-                  tar cvf ${APPLICATION_NAME}-${OPENSSL_VERSION}-${PLATFORM}.tar.gz  ${APPLICATION_NAME}-${OPENSSL_VERSION} 
-                  aws s3 cp --no-progress ${APPLICATION_NAME}-${OPENSSL_VERSION}-${PLATFORM}.tar.gz s3://ookla-native-toolchains/${APPLICATION_NAME}-${OPENSSL_VERSION}-${PLATFORM}.tar.gz
+                  set -eu
+                  tar cvzf ${OPENSSL}-${PLATFORM}.tar.gz  ${OPENSSL} 
+                  aws s3 cp --no-progress ${OPENSSL}-${PLATFORM}.tar.gz s3://ookla-native-toolchains/${OPENSSL}-${PLATFORM}.tar.gz
                 """
               }
             }
