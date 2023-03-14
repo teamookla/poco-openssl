@@ -5,21 +5,35 @@ def agents = [
   deb5_64bit:      [ label: 'native-deb5-64', ],
   deb8_64bit:      [ label: 'native-deb8-64' ],
   deb9_64bit:      [ label: 'native-deb9-64' ],
-  freebsd11_32bit: [ label: 'freebsd32-11' ],
-  freebsd11_64bit: [ label: 'freebsd64-11' ],
+  freebsd13_64bit: [ label: 'freebsd64-13' ],
   freebsd12_64bit: [ label: 'freebsd64-12' ],
   macos:           [ label: 'macos' ],
   windows:         [ label: 'windows-build-pool' ],
 ]
 
 def builds = [
-  'freebsd11_64bit': [ agent: agents.freebsd11_64bit ],
-  'freebsd11_32bit': [ agent: agents.freebsd11_32bit ],
+  'freebsd13_64bit': [ agent: agents.freebsd13_64bit ],
   'freebsd12_64bit': [ agent: agents.freebsd12_64bit ],
-  'deb5_32bit':      [ agent: agents.deb5_32bit ],
-  'deb5_64bit':      [ agent: agents.deb5_64bit ],
-  'deb8_64bit':      [ agent: agents.deb8_64bit ],
   'deb9_64bit':      [ agent: agents.deb9_64bit ],
+  'static-x86_64-musl': [
+    agent: agents.deb9_64bit,
+    target:'x86_64-linux-musl', 
+    toolchain: 'static-musl-x86_64-linux-musl', 
+    sslPlatform: "linux-x86_64", 
+  ],
+  'static-i386-musl': [
+    agent: agents.deb9_64bit,
+    target:'i386-linux-musl', 
+    toolchain: 'static-musl-i386-linux-musl',
+    sslPlatform: "linux-x86", 
+    LDFLAGS: "-latomic", 
+  ],
+  'static-aarch64-musl': [
+    agent: agents.deb9_64bit,
+    target:'aarch64-linux-musl', 
+    toolchain: 'static-musl-aarch64-linux-musl',
+    sslPlatform: "linux-aarch64", 
+  ],  
   'macos':           [ agent: agents.macos ],
   'win32':           [ agent: agents.windows, perlPlatform:'VC-WIN32', winPlatform:'x86' ],
   'win64': [ agent: agents.windows, perlPlatform:'VC-WIN64A', winPlatform:'x64' ],
@@ -59,12 +73,36 @@ def createBuildStage(name, definition) {
                   deleteDir()
                 }
                 if (isUnix()) {
-                  sh """
-                    set -eu
-                    ./config --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test 
-                    make 
-                    make DESTDIR=./${OPENSSL} install_ssldirs install_sw
-                  """
+                  def toolchain = []
+                  if(definition.toolchain) {
+                    withAwsCredentials('jenkins-native-builds') {
+                      sh "mkdir -p /home/jenkins/toolchains && aws s3 cp --quiet s3://ookla-native-toolchains/${definition.toolchain}.tgz - | tar xz -C /home/jenkins/toolchains"
+                    }
+            
+                    withEnv([
+                      'STAGING_DIR=/home/jenkins/toolchains', 
+                      "TARGET_NAME=${definition.target}", 
+                      'CC=${STAGING_DIR}'+"/${definition.target}/bin/${definition.target}-gcc",
+                      'CXX=${STAGING_DIR}'+"/${definition.target}/bin/${definition.target}-g++", 
+                      "LDFLAGS=${definition.LDFLAGS ?: ""}", 
+                    ]) {
+                    sh """
+                      set -eu 
+                      env | sort
+                     ./Configure ${definition.sslPlatform} --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test 
+                      make -j4
+                      make DESTDIR=./${OPENSSL} install_ssldirs install_sw
+                    """
+                      
+                    }
+                  } else {
+                    sh """
+                      set -eu 
+                     ./config --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test 
+                      make -j4 
+                      make DESTDIR=./${OPENSSL} install_ssldirs install_sw
+                    """
+                  }
                 } else {
               sh """
                    set -eu
