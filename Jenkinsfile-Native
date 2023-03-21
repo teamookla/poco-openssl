@@ -73,8 +73,13 @@ def createBuildStage(name, definition) {
                   deleteDir()
                 }
                 if (isUnix()) {
+                  // Special handling for macOS to make fat binary.
+
                   def toolchain = []
-                  if(definition.toolchain) {
+                  if(name == 'macos') {
+                    // Make fat binary.
+                    sh '${WORKSPACE}/macos-fat-binary.sh'
+                  } else if(definition.toolchain) {
                     withAwsCredentials('jenkins-native-builds') {
                       sh "mkdir -p /home/jenkins/toolchains && aws s3 cp --quiet s3://ookla-native-toolchains/${definition.toolchain}.tgz - | tar xz -C /home/jenkins/toolchains"
                     }
@@ -92,8 +97,7 @@ def createBuildStage(name, definition) {
                      ./Configure ${definition.sslPlatform} --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test 
                       make -j4
                       make DESTDIR=./${OPENSSL} install_ssldirs install_sw
-                    """
-                      
+                    """                      
                     }
                   } else {
                     sh """
