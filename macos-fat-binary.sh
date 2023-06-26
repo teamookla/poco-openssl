@@ -3,12 +3,12 @@ set -eu
 
 export CC=ccache\ clang CFLAGS="-mmacosx-version-min=10.11"
 echo "Building x86_64"
-./Configure   darwin64-x86_64-cc --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test  
+./Configure   darwin64-x86_64-cc --prefix=/usr --openssldir=/usr/lib/ssl --libdir=lib no-ssl    no-tests no-ui-console no-unit-test
 make clean && make -j12
 make DESTDIR=./${OPENSSL} install_ssldirs install_sw 
 
 echo "Building ARM64..."
-./Configure   darwin64-arm64-cc --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test 
+./Configure   darwin64-arm64-cc --prefix=/usr --openssldir=/usr/lib/ssl --libdir=lib no-ssl    no-tests no-ui-console no-unit-test
 make clean && make -j12
 make DESTDIR=./${OPENSSL}-arm64 install_ssldirs install_sw
 
