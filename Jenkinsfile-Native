@@ -94,7 +94,7 @@ def createBuildStage(name, definition) {
                     sh """
                       set -eu 
                       env | sort
-                     ./Configure ${definition.sslPlatform} --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test 
+                     ./Configure ${definition.sslPlatform} --prefix=/usr --libdir=lib --openssldir=/usr/lib/ssl no-ssl no-tests no-ui-console no-unit-test
                       make -j4
                       make DESTDIR=./${OPENSSL} install_ssldirs install_sw
                     """                      
@@ -102,7 +102,7 @@ def createBuildStage(name, definition) {
                   } else {
                     sh """
                       set -eu 
-                     ./config --prefix=/usr --openssldir=/usr/lib/ssl no-ssl    no-tests no-ui-console no-unit-test 
+                     ./config --prefix=/usr --openssldir=/usr/lib/ssl --libdir=lib no-ssl no-tests no-ui-console no-unit-test
                       make -j4 
                       make DESTDIR=./${OPENSSL} install_ssldirs install_sw
                     """
@@ -162,7 +162,7 @@ pipeline {
   environment {
     APPLICATION_NAME = "openssl"
     BUILD_TIMESTAMP = "${timeStamp}"
-    OPENSSL_VERSION = "1.1.1t"
+    OPENSSL_VERSION = "3.1.1"
   }
   stages {
     stage('Build All') {
