@@ -119,7 +119,6 @@ def createBuildStage(name, definition) {
 
                   // https://stackoverflow.com/questions/50365513/building-a-static-version-of-openssl-library-using-md-switch
                   msvcBat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat" ${definition.winPlatform}
                     set PATH=c:\\Strawberry\\perl\\bin;%PATH%
                     set __CNF_CXXFLAGS=/FS 
                     set __CNF_CFLAGS=/FS
@@ -128,7 +127,7 @@ def createBuildStage(name, definition) {
                     jom
                     nmake install_ssldirs
                     nmake install_sw
-                  """, [winPlatform: definition.winPlatform]
+                  """
                 }
 
                 // compress and publish results
