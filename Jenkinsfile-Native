@@ -116,17 +116,6 @@ def createBuildStage(name, definition) {
                        rm -rf jom.zip
                    fi
                  """
-                  // Need to rewrite the makefile here, which is broken for static builds.
-                  // Also need to do some over-the-top escaping to deal with groovy->cmd->perl
-                  //makefileRewriteCommand = '''
-                  //perl -pi.bak -e
-                  //'s,@("\\$\\(PERL\\)" "\\$\\(SRCDIR\\)\\\\util\\\\copy.pl\" \\$\\((.*)\\) \\\\),\\@if not "\\$($2)" == "" $1,'
-                  //makefile
-                  //''' \
-                  //.stripIndent() \
-                  //.replaceAll('\n', ' ') \
-                  //.replaceAll('"', '\\\\"') \
-                  //.replaceAll('\'', '"')
 
                   // https://stackoverflow.com/questions/50365513/building-a-static-version-of-openssl-library-using-md-switch
                   msvcBat """
@@ -134,7 +123,6 @@ def createBuildStage(name, definition) {
                     set __CNF_CXXFLAGS=/FS 
                     set __CNF_CFLAGS=/FS
                     perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl --libdir=lib ${definition.perlPlatform}
-                    // ${makefileRewriteCommand}
                     set DESTDIR=${OPENSSL}
                     jom
                     nmake install_ssldirs
