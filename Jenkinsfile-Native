@@ -12,29 +12,29 @@ def agents = [
 ]
 
 def builds = [
-  'freebsd13_64bit': [ agent: agents.freebsd13_64bit ],
-  'freebsd12_64bit': [ agent: agents.freebsd12_64bit ],
-  'deb9_64bit':      [ agent: agents.deb9_64bit ],
-  'static-x86_64-musl': [
-    agent: agents.deb9_64bit,
-    target:'x86_64-linux-musl', 
-    toolchain: 'static-musl-x86_64-linux-musl', 
-    sslPlatform: "linux-x86_64", 
-  ],
-  'static-i386-musl': [
-    agent: agents.deb9_64bit,
-    target:'i386-linux-musl', 
-    toolchain: 'static-musl-i386-linux-musl',
-    sslPlatform: "linux-x86", 
-    LDFLAGS: "-latomic", 
-  ],
-  'static-aarch64-musl': [
-    agent: agents.deb9_64bit,
-    target:'aarch64-linux-musl', 
-    toolchain: 'static-musl-aarch64-linux-musl',
-    sslPlatform: "linux-aarch64", 
-  ],  
-  'macos':           [ agent: agents.macos ],
+  //'freebsd13_64bit': [ agent: agents.freebsd13_64bit ],
+  //'freebsd12_64bit': [ agent: agents.freebsd12_64bit ],
+  //'deb9_64bit':      [ agent: agents.deb9_64bit ],
+  //'static-x86_64-musl': [
+  //  agent: agents.deb9_64bit,
+  //  target:'x86_64-linux-musl',
+  //  toolchain: 'static-musl-x86_64-linux-musl',
+  //  sslPlatform: "linux-x86_64",
+  //],
+  //'static-i386-musl': [
+  //  agent: agents.deb9_64bit,
+  //  target:'i386-linux-musl',
+  //  toolchain: 'static-musl-i386-linux-musl',
+  //  sslPlatform: "linux-x86",
+  //  LDFLAGS: "-latomic",
+  //],
+  //'static-aarch64-musl': [
+  //  agent: agents.deb9_64bit,
+  //  target:'aarch64-linux-musl',
+  //  toolchain: 'static-musl-aarch64-linux-musl',
+   // sslPlatform: "linux-aarch64",
+  //],
+  //'macos':           [ agent: agents.macos ],
   'win32':           [ agent: agents.windows, perlPlatform:'VC-WIN32', winPlatform:'x86' ],
   'win64': [ agent: agents.windows, perlPlatform:'VC-WIN64A', winPlatform:'x64' ],
 ]
