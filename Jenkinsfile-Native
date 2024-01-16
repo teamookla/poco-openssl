@@ -114,8 +114,9 @@ def createBuildStage(name, definition) {
                     set PATH=c:\\Strawberry\\perl\\bin;%PATH%
                     set __CNF_CXXFLAGS=/FS 
                     set __CNF_CFLAGS=/FS
-                    perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl --libdir=C:\\OpenSSL\\lib ${definition.perlPlatform}
+                    perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=ssl --libdir=lib ${definition.perlPlatform}
                     set DESTDIR=${OPENSSL}
+                    nmake clean
                     nmake install_ssldirs
                     nmake install_sw
                   """
