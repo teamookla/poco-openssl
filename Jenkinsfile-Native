@@ -35,7 +35,7 @@ def builds = [
    // sslPlatform: "linux-aarch64",
   //],
   //'macos':           [ agent: agents.macos ],
-  'win32':           [ agent: agents.windows, perlPlatform:'VC-WIN32', winPlatform:'x86' ],
+  //'win32':           [ agent: agents.windows, perlPlatform:'VC-WIN32', winPlatform:'x86' ],
   'win64': [ agent: agents.windows, perlPlatform:'VC-WIN64A', winPlatform:'x64' ],
 ]
 
@@ -108,6 +108,14 @@ def createBuildStage(name, definition) {
                     """
                   }
                 } else {
+                  sh """
+                     set -eu
+                     if [[ ! -f jom.exe ]]; then
+                         aws s3 cp  --no-progress s3://ookla-native-toolchains/jom.zip .
+                         unzip -o jom.zip
+                         rm -rf jom.zip
+                     fi
+                   """
 
                   // https://stackoverflow.com/questions/50365513/building-a-static-version-of-openssl-library-using-md-switch
                   msvcBat """
@@ -116,6 +124,7 @@ def createBuildStage(name, definition) {
                     set __CNF_CFLAGS=/FS
                     perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=ssl --libdir=lib ${definition.perlPlatform}
                     set DESTDIR=${OPENSSL}
+                    jom
                     nmake clean
                     nmake install_ssldirs
                     nmake install_sw
