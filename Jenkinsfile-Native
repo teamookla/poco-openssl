@@ -108,23 +108,14 @@ def createBuildStage(name, definition) {
                     """
                   }
                 } else {
-                 sh """
-                   set -eu
-                   if [[ ! -f jom.exe ]]; then
-                       aws s3 cp  --no-progress s3://ookla-native-toolchains/jom.zip .
-                       unzip -o jom.zip
-                       rm -rf jom.zip
-                   fi
-                 """
 
                   // https://stackoverflow.com/questions/50365513/building-a-static-version-of-openssl-library-using-md-switch
                   msvcBat """
                     set PATH=c:\\Strawberry\\perl\\bin;%PATH%
                     set __CNF_CXXFLAGS=/FS 
                     set __CNF_CFLAGS=/FS
-                    perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl --libdir=lib ${definition.perlPlatform}
+                    perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl --libdir=C:\\OpenSSL\\lib ${definition.perlPlatform}
                     set DESTDIR=${OPENSSL}
-                    jom
                     nmake install_ssldirs
                     nmake install_sw
                   """
