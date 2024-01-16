@@ -134,11 +134,11 @@ def createBuildStage(name, definition) {
                     set __CNF_CXXFLAGS=/FS 
                     set __CNF_CFLAGS=/FS
                     perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl --libdir=lib ${definition.perlPlatform}
-                    ${makefileRewriteCommand}
+                    // ${makefileRewriteCommand}
                     set DESTDIR=${OPENSSL}
                     jom
                     nmake install_ssldirs
-		    nmake install_sw
+                    nmake install_sw
                   """, [winPlatform: definition.winPlatform]
                 }
 
