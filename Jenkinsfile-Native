@@ -118,7 +118,8 @@ def createBuildStage(name, definition) {
                    """
 
                   // https://stackoverflow.com/questions/50365513/building-a-static-version-of-openssl-library-using-md-switch
-                  msvcBat """
+                  bat """
+                    call vcvarsall.bat ${definition.winPlatform}
                     set PATH=c:\\Strawberry\\perl\\bin;%PATH%
                     perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
                     nasm -v
@@ -126,8 +127,8 @@ def createBuildStage(name, definition) {
                     cl
                     jom
                     nmake clean
-                    nmake install_ssldirs
-                    nmake install_sw
+                    nmake
+                    nmake install
                   """
                 }
 
