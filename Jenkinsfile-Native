@@ -117,12 +117,17 @@ def createBuildStage(name, definition) {
                      fi
                    """
 
+                  bat """
+                    del /s /q /f "C:\\OpenSSL\\*"
+                  """
+
                   // https://stackoverflow.com/questions/50365513/building-a-static-version-of-openssl-library-using-md-switch
                   msvcBat """
                     set PATH=c:\\Strawberry\\perl\\bin;%PATH%
                     set __CNF_CXXFLAGS=/FS 
                     set __CNF_CFLAGS=/FS
-                    perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=ssl --libdir=lib
+                    perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
+                    ms\do_win64a
                     set DESTDIR=${OPENSSL}
                     jom
                     nmake clean
