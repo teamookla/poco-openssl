@@ -117,7 +117,7 @@ def createBuildStage(name, definition) {
                      fi
                   """
 
-                  bat 'win-build.cmd'
+                  bat 'win-build.bat'
                 }
 
                 // compress and publish results
