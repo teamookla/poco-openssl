@@ -115,9 +115,25 @@ def createBuildStage(name, definition) {
                          unzip -o jom.zip
                          rm -rf jom.zip
                      fi
+                     if [ -z "${VSDIR}" ]; then
+                         export VSDIR
+                         source ./vs-dir.sh
+                     fi
                   """
 
-                  bat 'call win-build.bat'
+                  bat """
+                      call "%VSDIR%vcvarsall.bat" %platform%
+                      set PATH=c:\\Strawberry\\perl\\bin;%PATH%
+                      set __CNF_CXXFLAGS=/FS
+                      set __CNF_CFLAGS=/FS
+                      perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
+                      set DESTDIR=${OPENSSL}
+                      jom
+                      nmake clean
+                      nmake
+                      nmake test
+                      nmake install
+                  """
                 }
 
                 // compress and publish results
