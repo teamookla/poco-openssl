@@ -122,7 +122,7 @@ def createBuildStage(name, definition) {
                       set __CNF_CXXFLAGS=/FS
                       set __CNF_CFLAGS=/FS
                       nmake clean
-                      perl Configure no-shared    no-tests no-ui-console no-unit-test  --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
+                      perl Configure no-shared    no-tests no-ui-console no-unit-test  --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl --libdir=lib ${definition.perlPlatform}
                       set DESTDIR=${OPENSSL}
                       jom
                       nmake
