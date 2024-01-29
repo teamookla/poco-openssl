@@ -125,8 +125,9 @@ def createBuildStage(name, definition) {
                       perl Configure no-shared    no-tests no-ui-console no-unit-test  --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
                       set DESTDIR=${OPENSSL}
                       jom
-                      nmake install_ssldirs
-                      nmake install_sw
+                      nmake
+                      nmake test
+                      nmake install
                   """, [winPlatform: definition.winPlatform]
                 }
 
