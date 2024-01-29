@@ -115,11 +115,19 @@ def createBuildStage(name, definition) {
                          unzip -o jom.zip
                          rm -rf jom.zip
                      fi
-                     if [ -z "${VSDIR}" ]; then
-                         export VSDIR
-                         source ./vs-dir.sh
-                     fi
                   """
+
+                  // Need to rewrite the makefile here, which is broken for static builds.
+                  // Also need to do some over-the-top escaping to deal with groovy->cmd->perl
+                  makefileRewriteCommand = '''
+                  perl -pi.bak -e
+                  's,@("\\$\\(PERL\\)" "\\$\\(SRCDIR\\)\\\\util\\\\copy.pl\" \\$\\((.*)\\) \\\\),\\@if not "\\$($2)" == "" $1,'
+                  makefile
+                  ''' \
+                  .stripIndent() \
+                  .replaceAll('\n', ' ') \
+                  .replaceAll('"', '\\\\"') \
+                  .replaceAll('\'', '"')
 
                   msvcBat """
                       set PATH=c:\\Strawberry\\perl\\bin;%PATH%
