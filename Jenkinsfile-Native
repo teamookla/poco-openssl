@@ -119,15 +119,15 @@ def createBuildStage(name, definition) {
 
                   // Need to rewrite the makefile here, which is broken for static builds.
                   // Also need to do some over-the-top escaping to deal with groovy->cmd->perl
-                  makefileRewriteCommand = '''
-                  perl -pi.bak -e
-                  's,@("\\$\\(PERL\\)" "\\$\\(SRCDIR\\)\\\\util\\\\copy.pl\" \\$\\((.*)\\) \\\\),\\@if not "\\$($2)" == "" $1,'
-                  makefile
-                  ''' \
-                  .stripIndent() \
-                  .replaceAll('\n', ' ') \
-                  .replaceAll('"', '\\\\"') \
-                  .replaceAll('\'', '"')
+                  //makefileRewriteCommand = '''
+                  //perl -pi.bak -e
+                  //'s,@("\\$\\(PERL\\)" "\\$\\(SRCDIR\\)\\\\util\\\\copy.pl\" \\$\\((.*)\\) \\\\),\\@if not "\\$($2)" == "" $1,'
+                  //makefile
+                  //''' \
+                  //.stripIndent() \
+                  //.replaceAll('\n', ' ') \
+                  //.replaceAll('"', '\\\\"') \
+                  //.replaceAll('\'', '"')
 
                   msvcBat """
                       set PATH=c:\\Strawberry\\perl\\bin;%PATH%
@@ -135,7 +135,7 @@ def createBuildStage(name, definition) {
                       set __CNF_CFLAGS=/FS
                       nmake clean
                       perl Configure no-shared    no-tests no-ui-console no-unit-test  --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
-                      ${makefileRewriteCommand}
+                      //${makefileRewriteCommand}
                       set DESTDIR=${OPENSSL}
                       jom
                       nmake install_ssldirs
