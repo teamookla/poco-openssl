@@ -121,19 +121,18 @@ def createBuildStage(name, definition) {
                      fi
                   """
 
-                  bat """
-                      call "%VSDIR%vcvarsall.bat" %platform%
+                  msvcBat """
                       set PATH=c:\\Strawberry\\perl\\bin;%PATH%
                       set __CNF_CXXFLAGS=/FS
                       set __CNF_CFLAGS=/FS
-                      perl Configure no-shared no-tests no-ui-console no-unit-test --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
+                      nmake clean
+                      perl Configure no-shared    no-tests no-ui-console no-unit-test  --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
+                      ${makefileRewriteCommand}
                       set DESTDIR=${OPENSSL}
                       jom
-                      nmake clean
-                      nmake
-                      nmake test
-                      nmake install
-                  """
+                      nmake install_ssldirs
+                      nmake install_sw
+                  """, [winPlatform: definition.winPlatform]
                 }
 
                 // compress and publish results
