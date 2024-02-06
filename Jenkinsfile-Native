@@ -162,7 +162,7 @@ pipeline {
   environment {
     APPLICATION_NAME = "openssl"
     BUILD_TIMESTAMP = "${timeStamp}"
-    OPENSSL_VERSION = "3.1.5"
+    OPENSSL_VERSION = "3.2.1"
   }
   stages {
     stage('Build All') {
