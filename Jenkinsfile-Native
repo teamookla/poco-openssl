@@ -137,6 +137,7 @@ def createBuildStage(name, definition) {
                     ${makefileRewriteCommand}
                     set DESTDIR=${OPENSSL}
                     jom
+                    nmake clean
                     nmake install
                   """, [winPlatform: definition.winPlatform]
                 }
