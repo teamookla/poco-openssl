@@ -73,23 +73,24 @@ def createBuildStage(name, definition) {
                     sh '${WORKSPACE}/macos-fat-binary.sh'
                   } else if(definition.toolchain) {
                     withAwsCredentials('jenkins-native-builds') {
-                      sh "mkdir -p /home/jenkins/toolchains && aws s3 cp --quiet s3://ookla-native-toolchains/${definition.toolchain}.tgz - | tar xz -C /home/jenkins/toolchains"
+                      sh "mkdir -p /home/jenkins/toolchains && aws s3 cp --quiet s3://ookla-native-toolchains/musl-gcc-${MUSL_GCC_VERSION}/${definition.toolchain}.tgz - | tar xz -C /home/jenkins/toolchains"
                     }
             
                     withEnv([
-                      'STAGING_DIR=/home/jenkins/toolchains', 
-                      "TARGET_NAME=${definition.target}", 
-                      'CC=${STAGING_DIR}'+"/${definition.target}/bin/${definition.target}-gcc",
-                      'CXX=${STAGING_DIR}'+"/${definition.target}/bin/${definition.target}-g++", 
-                      "LDFLAGS=${definition.LDFLAGS ?: ""}", 
+                      "STAGING_DIR=/home/jenkins/toolchains/cross",
+                      "TARGET_NAME=${definition.target}",
+                      'CC=${STAGING_DIR}'+"/${definition.target}-gcc-${MUSL_GCC_VERSION}/bin/${definition.target}-gcc",
+                      'CXX=${STAGING_DIR}'+"/${definition.target}-gcc-${MUSL_GCC_VERSION}/bin/${definition.target}-g++",
+                      "CFLAGS=-ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables",
+                      "LDFLAGS=${definition.LDFLAGS ?: ''} -Wl,--gc-sections",
                     ]) {
                     sh """
-                      set -eu 
+                      set -eu
                       env | sort
                      ./Configure ${definition.sslPlatform} --prefix=/usr --libdir=lib --openssldir=/usr/lib/ssl no-ssl no-tests no-ui-console no-unit-test
                       make -j4
                       make DESTDIR=./${OPENSSL} install_ssldirs install_sw
-                    """                      
+                    """
                     }
                   } else {
                     sh """
@@ -155,6 +156,7 @@ pipeline {
     APPLICATION_NAME = "openssl"
     BUILD_TIMESTAMP = "${timeStamp}"
     OPENSSL_VERSION = "3.5.5"
+    MUSL_GCC_VERSION = "15.1"
   }
   stages {
     stage('Build All') {
