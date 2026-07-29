@@ -2,11 +2,13 @@
 
 def agents = [
   deb11_64bit:     [ label: 'native-deb11-64' ],
+  freebsd13_64bit: [ label: 'freebsd64-13' ],
   macos:           [ label: 'macos' ],
   windows:         [ label: 'windows-build-pool' ],
 ]
 
 def builds = [
+  'freebsd13_64bit': [ agent: agents.freebsd13_64bit ],
   'static-x86_64-musl': [
     agent: agents.deb11_64bit,
     target:'x86_64-linux-musl', 
