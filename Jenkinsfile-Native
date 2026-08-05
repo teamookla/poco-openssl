@@ -2,13 +2,16 @@
 
 def agents = [
   deb11_64bit:     [ label: 'native-deb11-64' ],
-  freebsd13_64bit: [ label: 'freebsd64-13' ],
+  freebsd_jail:    [ label: 'freebsd-jail' ],
   macos:           [ label: 'macos' ],
   windows:         [ label: 'windows-build-pool' ],
 ]
 
 def builds = [
-  'freebsd13_64bit': [ agent: agents.freebsd13_64bit ],
+  'freebsd14-x86_64': [ agent: agents.freebsd_jail, platform: 'freebsd14-x86_64', jail: 'fbsd14' ],
+  'freebsd15-x86_64': [ agent: agents.freebsd_jail, platform: 'freebsd15-x86_64', jail: 'fbsd15' ],
+  'freebsd14-arm64':  [ agent: agents.freebsd_jail, platform: 'freebsd14-arm64',  jail: 'fbsd14' ],
+  'freebsd15-arm64':  [ agent: agents.freebsd_jail, platform: 'freebsd15-arm64',  jail: 'fbsd15' ],
   'static-x86_64-musl': [
     agent: agents.deb11_64bit,
     target:'x86_64-linux-musl', 
@@ -49,6 +52,7 @@ def createBuildStage(name, definition) {
           withEnv([
             "PLATFORM=${definition.platform ?: name}",
             "OPENSSL=${APPLICATION_NAME}-${OPENSSL_VERSION}",
+            "FREEBSD_JAIL=${definition.jail ?: ''}",
           ]) {
             withAwsCredentials('jenkins-native-builds') {
               if (env.BRANCH_NAME == 'master') {
@@ -73,6 +77,11 @@ def createBuildStage(name, definition) {
                   if(name == 'macos') {
                     // Make fat binary.
                     sh '${WORKSPACE}/macos-fat-binary.sh'
+                  } else if(definition.jail) {
+                    // FreeBSD 14/15: the agent itself is the jail host, so the
+                    // configure/make/install runs inside the jail and the
+                    // DESTDIR tree is rsynced back out for the tar/upload below.
+                    sh '${WORKSPACE}/freebsd-jail-build.sh'
                   } else if(definition.toolchain) {
                     withAwsCredentials('jenkins-native-builds') {
                       sh "mkdir -p /home/jenkins/toolchains && aws s3 cp --quiet s3://ookla-native-toolchains/musl-gcc-${MUSL_GCC_VERSION}/${definition.toolchain}.tgz - | tar xz -C /home/jenkins/toolchains"
