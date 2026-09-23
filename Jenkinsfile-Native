@@ -1,7 +1,7 @@
 @Library('common-jenkins') _
 
 def agents = [
-  deb11_64bit:     [ label: 'native-deb11-64' ],
+  deb13_64bit:     [ label: 'native-deb13-64' ],
   freebsd_jail:    [ label: 'freebsd-jail' ],
   macos:           [ label: 'macos' ],
   windows:         [ label: 'windows-build-pool' ],
@@ -13,20 +13,20 @@ def builds = [
   'freebsd14-arm64':  [ agent: agents.freebsd_jail, platform: 'freebsd14-arm64',  jail: 'fbsd14' ],
   'freebsd15-arm64':  [ agent: agents.freebsd_jail, platform: 'freebsd15-arm64',  jail: 'fbsd15' ],
   'static-x86_64-musl': [
-    agent: agents.deb11_64bit,
+    agent: agents.deb13_64bit,
     target:'x86_64-linux-musl', 
     toolchain: 'static-musl-x86_64-linux-musl', 
     sslPlatform: "linux-x86_64", 
   ],
   'static-i386-musl': [
-    agent: agents.deb11_64bit,
+    agent: agents.deb13_64bit,
     target:'i386-linux-musl', 
     toolchain: 'static-musl-i386-linux-musl',
     sslPlatform: "linux-x86", 
     LDFLAGS: "-latomic", 
   ],
   'static-aarch64-musl': [
-    agent: agents.deb11_64bit,
+    agent: agents.deb13_64bit,
     target:'aarch64-linux-musl', 
     toolchain: 'static-musl-aarch64-linux-musl',
     sslPlatform: "linux-aarch64", 
@@ -166,10 +166,37 @@ pipeline {
   environment {
     APPLICATION_NAME = "openssl"
     BUILD_TIMESTAMP = "${timeStamp}"
-    OPENSSL_VERSION = "3.5.5"
+    OPENSSL_VERSION = "3.5.8"
     MUSL_GCC_VERSION = "15.1"
   }
   stages {
+    stage('Fetch Source') {
+      // Mirror the release tarball into S3 once, before the parallel builds
+      // (which all pull it from S3), so they don't race to fetch/upload it.
+      agent { label 'native-deb13-64' }
+      steps {
+        withAwsCredentials('jenkins-native-builds') {
+          sh '''
+            set -eu
+            TARBALL="${APPLICATION_NAME}-${OPENSSL_VERSION}.tar.gz"
+            S3_URL="s3://ookla-native-toolchains/${TARBALL}"
+            if aws s3 ls "${S3_URL}" > /dev/null; then
+              echo "${TARBALL} already in S3"
+              exit 0
+            fi
+
+            RELEASE_URL="https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/${TARBALL}"
+            rm -f "${TARBALL}" "${TARBALL}.sha256"
+            curl -fsSL -o "${TARBALL}" "${RELEASE_URL}"
+            curl -fsSL -o "${TARBALL}.sha256" "${RELEASE_URL}.sha256"
+            echo "$(cut -d' ' -f1 "${TARBALL}.sha256")  ${TARBALL}" | sha256sum -c -
+
+            aws s3 cp --no-progress "${TARBALL}" "${S3_URL}"
+            rm -f "${TARBALL}" "${TARBALL}.sha256"
+          '''
+        }
+      }
+    }
     stage('Build All') {
       steps {
         script {
