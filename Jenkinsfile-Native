@@ -14,23 +14,23 @@ def builds = [
   'freebsd15-arm64':  [ agent: agents.freebsd_jail, platform: 'freebsd15-arm64',  jail: 'fbsd15' ],
   'static-x86_64-musl': [
     agent: agents.deb13_64bit,
-    target:'x86_64-linux-musl', 
-    toolchain: 'static-musl-x86_64-linux-musl', 
-    sslPlatform: "linux-x86_64", 
+    target:'x86_64-linux-musl',
+    toolchain: 'static-musl-x86_64-linux-musl',
+    sslPlatform: "linux-x86_64",
   ],
   'static-i386-musl': [
     agent: agents.deb13_64bit,
-    target:'i386-linux-musl', 
+    target:'i386-linux-musl',
     toolchain: 'static-musl-i386-linux-musl',
-    sslPlatform: "linux-x86", 
-    LDFLAGS: "-latomic", 
+    sslPlatform: "linux-x86",
+    LDFLAGS: "-latomic",
   ],
   'static-aarch64-musl': [
     agent: agents.deb13_64bit,
-    target:'aarch64-linux-musl', 
+    target:'aarch64-linux-musl',
     toolchain: 'static-musl-aarch64-linux-musl',
-    sslPlatform: "linux-aarch64", 
-  ],  
+    sslPlatform: "linux-aarch64",
+  ],
   'macos':           [ agent: agents.macos ],
   'win32':           [ agent: agents.windows, perlPlatform:'VC-WIN32', winPlatform:'x86' ],
   'win64': [ agent: agents.windows, perlPlatform:'VC-WIN64A', winPlatform:'x64' ],
@@ -63,8 +63,8 @@ def createBuildStage(name, definition) {
 
               sh """
                    aws s3 cp --no-progress s3://ookla-native-toolchains/${OPENSSL}.tar.gz .
-                   tar xzf ${OPENSSL}.tar.gz 
-                   rm -f ${OPENSSL}.tar.gz 
+                   tar xzf ${OPENSSL}.tar.gz
+                   rm -f ${OPENSSL}.tar.gz
                  """
               dir("${OPENSSL}") {
                 dir("${OPENSSL}") {
@@ -86,7 +86,7 @@ def createBuildStage(name, definition) {
                     withAwsCredentials('jenkins-native-builds') {
                       sh "mkdir -p /home/jenkins/toolchains && aws s3 cp --quiet s3://ookla-native-toolchains/musl-gcc-${MUSL_GCC_VERSION}/${definition.toolchain}.tgz - | tar xz -C /home/jenkins/toolchains"
                     }
-            
+
                     withEnv([
                       "STAGING_DIR=/home/jenkins/toolchains/cross",
                       "TARGET_NAME=${definition.target}",
@@ -105,16 +105,16 @@ def createBuildStage(name, definition) {
                     }
                   } else {
                     sh """
-                      set -eu 
+                      set -eu
                      ./config --prefix=/usr --openssldir=/usr/lib/ssl --libdir=lib no-ssl no-tests no-ui-console no-unit-test
-                      make -j4 
+                      make -j4
                       make DESTDIR=./${OPENSSL} install_ssldirs install_sw
                     """
                   }
                 } else {
               sh """
                    set -eu
-                   if [[ ! -f jom.exe ]]; then 
+                   if [[ ! -f jom.exe ]]; then
                        aws s3 cp  --no-progress s3://ookla-native-toolchains/jom.zip .
                        unzip -o jom.zip
                        rm -rf jom.zip
@@ -135,7 +135,7 @@ def createBuildStage(name, definition) {
                   // https://stackoverflow.com/questions/50365513/building-a-static-version-of-openssl-library-using-md-switch
                   msvcBat """
                     set PATH=c:\\Strawberry\\perl\\bin;%PATH%
-                    set __CNF_CXXFLAGS=/FS 
+                    set __CNF_CXXFLAGS=/FS
                     set __CNF_CFLAGS=/FS
                     perl Configure no-shared    no-tests no-ui-console no-unit-test  --prefix=C:\\OpenSSL --openssldir=C:\\OpenSSL\\ssl ${definition.perlPlatform}
                     ${makefileRewriteCommand}
@@ -149,7 +149,7 @@ def createBuildStage(name, definition) {
                 // compress and publish results
                 sh """
                   set -eu
-                  tar cvzf ${OPENSSL}-${PLATFORM}.tar.gz  ${OPENSSL} 
+                  tar cvzf ${OPENSSL}-${PLATFORM}.tar.gz  ${OPENSSL}
                   aws s3 cp --no-progress ${OPENSSL}-${PLATFORM}.tar.gz s3://ookla-native-toolchains/${OPENSSL}-${PLATFORM}.tar.gz
                 """
               }
@@ -166,7 +166,7 @@ pipeline {
   environment {
     APPLICATION_NAME = "openssl"
     BUILD_TIMESTAMP = "${timeStamp}"
-    OPENSSL_VERSION = "3.5.8"
+    OPENSSL_VERSION = "3.5.9"
     MUSL_GCC_VERSION = "15.1"
   }
   stages {
